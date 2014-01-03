@@ -119,6 +119,9 @@ class Thread::Pool
 
 		@done       = ConditionVariable.new
 		@done_mutex = Mutex.new
+		
+    @idle       = ConditionVariable.new
+    @idle_mutex = Mutex.new
 
 		@todo     = []
 		@workers  = []
@@ -201,11 +204,19 @@ class Thread::Pool
 		}
 	end
 	
-	# Are the Idle Workers 
-	def idle_workers?
-	   @waiting > 0  
-	end
+  # Are the Idle Workers 
+  def idle_worker?
+     @todo.length < @waiting
+  end
 
+  # Wait until a worker is idle and no Proces on Todo Queue
+  def wait_idle_worker
+       @idle_mutex.synchronize {
+            return if idle_worker?
+            @idle.wait @idle_mutex
+       }
+  end
+  
 	# Add a task to the pool which will execute the block with the given
 	# argument.
 	#
@@ -346,6 +357,7 @@ private
 							@waiting += 1
 
 							report_done
+							report_idle
 
 							if @idle_trim and @spawned > @min
 								check_time = Time.now + @idle_trim
@@ -422,6 +434,12 @@ private
 			@done.broadcast if done?
 		}
 	end
+	
+  def report_idle
+         @idle_mutex.synchronize {
+             @idle.broadcast if idle_worker?
+         }
+  end
 
 end
 
