@@ -200,6 +200,11 @@ class Thread::Pool
 			@done.wait @done_mutex
 		}
 	end
+	
+	# Are the Idle Workers 
+	def idle_workers?
+	   @todo.empty? and @waiting > 0  
+	end
 
 	# Add a task to the pool which will execute the block with the given
 	# argument.
