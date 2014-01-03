@@ -204,18 +204,18 @@ class Thread::Pool
 		}
 	end
 	
-  # Are the Idle Workers 
-  def idle_worker?
-     @todo.length < @waiting
-  end
+        # Check if there are idle workers. 
+        def idle?
+               @todo.length < @waiting
+        end
 
-  # Wait until a worker is idle and no Proces on Todo Queue
-  def wait_idle_worker
-       @idle_mutex.synchronize {
-            return if idle_worker?
-            @idle.wait @idle_mutex
-       }
-  end
+        # Wait until a worker is idle and no Proces on Todo Queue
+        def wait_idle_worker
+               @done_mutex.synchronize {
+                  return if idle?
+               @done.wait @done_mutex
+        }
+        end
   
 	# Add a task to the pool which will execute the block with the given
 	# argument.
@@ -357,7 +357,6 @@ private
 							@waiting += 1
 
 							report_done
-							report_idle
 
 							if @idle_trim and @spawned > @min
 								check_time = Time.now + @idle_trim
@@ -431,16 +430,9 @@ private
 
 	def report_done
 		@done_mutex.synchronize {
-			@done.broadcast if done?
+			@done.broadcast if done? or idle?
 		}
 	end
-	
-  def report_idle
-         @idle_mutex.synchronize {
-             @idle.broadcast if idle_worker?
-         }
-  end
-
 end
 
 class Thread
