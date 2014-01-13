@@ -120,9 +120,6 @@ class Thread::Pool
 		@done       = ConditionVariable.new
 		@done_mutex = Mutex.new
 		
-    @idle       = ConditionVariable.new
-    @idle_mutex = Mutex.new
-
 		@todo     = []
 		@workers  = []
 		@timeouts = {}
@@ -209,14 +206,23 @@ class Thread::Pool
                @todo.length < @waiting
         end
 
-        # Wait until a worker is idle and no Proces on Todo Queue
-        def wait_idle_worker
-               @done_mutex.synchronize {
-                  return if idle?
-               @done.wait @done_mutex
-        }
+        # Process Block when there is a idle worker if not block its returns
+        def idle (&block)
+                while !idle?
+                        @done_mutex.synchronize {
+                                break if idle?
+                                @done.wait @done_mutex
+                        }
+                end
+
+                unless block
+                        return
+                end
+
+                process &block
+
         end
-  
+        
 	# Add a task to the pool which will execute the block with the given
 	# argument.
 	#
